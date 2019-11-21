@@ -1,0 +1,124 @@
+MAIN:
+  path_to_project: "/home/danil.akhmetov/Projects/Clouds/"
+  path_to_data: "/home/danil.akhmetov/Projects/Clouds/data/"
+  activation: &activation "sigmoid"
+  n_classes: &n_classes 4
+  width: 2100
+  height: 1400
+TRAIN:
+  fold: &fold 0
+  batch_size: 16
+  model: &model models.segmentation_models_pytorch_danil.FPN
+  model_params: &model_params
+    classes: *n_classes
+    encoder_weights: imagenet
+    encoder_name: efficientnet-b4
+    dropout: 0.25
+#    attention_type: scse
+    cls_out: 0
+   # hypercolumn: 'true'
+    attentionGate: 'true'
+    activation: *activation
+
+  train_params:
+    name: &name smp_fpn_efb4_bce_fold_0_v12
+    type: &type full_size
+    model: *model
+    model_params: *model_params
+    loss: losses.ComboSuperVisionLoss
+    loss_params:
+      weights:
+        focal: 3
+        dice: 1
+      sv_weight: 0.01
+      activation: *activation
+    metrics:
+      metrics.HardDiceCoef:
+        threshold: 0.5
+      metrics.SoftDiceCoef:
+        class_id: -1
+#      metrics.SoftMaxDiceMetric:
+#        threshold: 0.5
+
+  stages:
+#    warmup:
+#      lookahead: "true"
+#      optimizer: optimizer.RAdam
+#      optimizer_params:
+#        lr: 0.0001
+#        weight_decay: 0.00001
+#      scheduler: optimizer.GradualWarmupScheduler
+#      scheduler_params:
+#        multiplier: 8
+#        total_epoch: 10
+#      epochs: 10
+
+#    freeze:
+#      lookahead: "true"
+#      optimizer: optimizer.RAdam
+#      optimizer_params:
+#        lr: 0.001
+#        weight_decay: 0.0
+#      scheduler: StepLR
+#      scheduler_params:
+#        step_size: 5
+#      epochs: 10
+
+    cosine:
+      lookahead: "true"
+      optimizer: optimizer.RAdam
+      optimizer_params:
+        lr: 0.0001
+        weight_decay: 0.00001
+      scheduler: CosineAnnealingLR
+      scheduler_params:
+        T_max: 20
+        eta_min: 0.000001
+      epochs: 60
+
+#    sgd:
+#      lookahead: "true"
+#      optimizer: SGD
+#      optimizer_params:
+#        lr: 0.0001
+#        weight_decay: 0.00001
+#      scheduler: CosineAnnealingLR
+#      scheduler_params:
+#        T_max: 10
+#        eta_min: 0.000001
+#      epochs: 20
+
+  swa: 0
+  data_params:
+    empty_mask_increase:
+      state: "false"
+      start_value: 0.05
+      end_value: 1.0
+      n_epochs: 50
+
+  dumps:
+    metric_name: HardDiceCoef
+    path: /home/danil.akhmetov/Projects/Clouds/output/
+    weights: weights
+    logs: logs
+
+TEST:
+  name: *name
+  type: *type
+  batch_size: 64
+  fold: *fold
+  model: *model
+  model_params: *model_params
+  weights: /home/danil.akhmetov/Projects/Clouds/output/weights
+  cls_predict_val: ''
+  cls_predict_test: '../data/test_cls.csv'
+  TTA: 'true'
+  channel_threshold: "true"
+  use_dense_crf: "false"
+  use_dilations: "true"
+  use_poligonization: "false"
+
+#Best min_size threshold - 100, best score - 0.5460078716278076
+#100 - 0.5292910933494568
+#100 - 0.5451159477233887
+#100 - 0.5473940372467041
